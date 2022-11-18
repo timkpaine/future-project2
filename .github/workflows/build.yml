@@ -1,0 +1,120 @@
+name: Build Status
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - v*
+    paths-ignore:
+      - LICENSE
+      - README.md
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    needs: []
+    strategy:
+      matrix:
+        os:
+          - ubuntu-20.04 # https://github.com/actions/virtual-environments/blob/main/images/linux/Ubuntu2004-Readme.md
+          - macos-11 # https://github.com/actions/virtual-environments/blob/main/images/macos/macos-11-Readme.md
+          - windows-2022 # https://github.com/actions/virtual-environments/blob/main/images/win/Windows2022-Readme.md
+        python-version:
+          - 3.7
+          # - 3.8
+          # - 3.9
+
+    runs-on: ${{ matrix.os }}
+    steps:
+    # Checkout source code
+    - name: Checkout
+      uses: actions/checkout@v2
+      with:
+        submodules: recursive
+
+    #########
+    # VCPKG #
+    #########
+    - name: Install cmake
+      uses: lukka/get-cmake@latest
+      if: ${{ matrix.os != 'macos-11' }}
+
+    - name: Restore artifacts, or setup vcpkg
+      uses: lukka/run-vcpkg@v10
+      with:
+        runVcpkgInstall: true
+      if: ${{ matrix.os != 'macos-11' }}
+
+
+    ############
+    # Homebrew #
+    ############
+    - name: Configure Homebrew cache
+      uses: actions/cache@v2
+      with:
+        path: |
+          ~/Library/Caches/Homebrew/foo--*
+          ~/Library/Caches/Homebrew/downloads/*--foo-*
+        key: brew-${{ hashFiles('.github/brew-formulae') }}
+        restore-keys: brew-
+      if: ${{ matrix.os == 'macos-11' }}
+
+    - name: Install dependencies (Mac)
+      run: |
+        make dependencies-mac
+      if: ${{ matrix.os == 'macos-11' }}
+
+    ##########
+    # PYTHON #
+    ##########
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+        cache: 'pip'
+        cache-dependency-path: 'setup.py'
+
+    ########
+    # DEPS #
+    ########
+    - name: Install dependencies
+      run: |
+        make develop
+
+    #########
+    # BUILD #
+    #########
+    - name: Build 
+      run: |
+        make build
+
+    ########
+    # LINT #
+    ########
+    - name: Lint
+      run: |
+        make lint
+
+    ##########
+    # CHECKS #
+    ##########
+    - name: Checks
+      run: |
+        make checks
+      if: ${{ matrix.os == 'ubuntu-20.04' }}
+
+    ########
+    # TEST #
+    ########
+    - name: Test
+      run: |
+        make tests
+      if: ${{ matrix.os == 'ubuntu-20.04' }}

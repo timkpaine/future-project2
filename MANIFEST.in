@@ -1,0 +1,34 @@
+graft future_project
+graft cpp
+
+
+include LICENSE
+include README.md
+include CONTRIBUTING.md
+
+include pyproject.toml
+include Makefile
+include CMakeLists.txt
+
+prune vcpkg
+prune .github
+prune .vscode
+prune _skbuild
+prune future_project/include
+
+exclude .clang-format
+exclude .gitattributes
+exclude .gitignore
+exclude .gitmodules
+exclude vcpkg.json
+
+# Patterns to exclude from any directory
+global-exclude *~
+global-exclude *.pyc
+global-exclude *.pyo
+global-exclude .git
+global-exclude .ipynb_checkpoints
+global-exclude .DS_Store
+global-exclude *.so
+global-exclude *.dll
+global-exclude *.dylib
